@@ -10,6 +10,7 @@
 比如直接改jmp或者push|ret来实现跳转  
 ## X64 SSDT HOOK  
 踩的坑还挺多。。。  像一般都是hook蓝屏函数，但是我的win10版本这个函数不在ssdt表里，超出了base周围哪4gb范围，只能换其他的hook，这边选择的是ZwAddBootEntry，经测试没啥大问题。  
-绕pg是不可能的，虚拟机版本win10 1903 18362.959
+绕pg是不可能的，虚拟机版本win10 1903 18362.959  
+这边也借鉴了Tesla.Angela的教材  
 
 
