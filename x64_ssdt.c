@@ -1,6 +1,8 @@
 #include <ntddk.h>
 #include <intrin.h>
 
+NTKERNELAPI UCHAR* PsGetProcessImageFileName(PEPROCESS EProcess);
+NTKERNELAPI UCHAR* PsLookupProcessByProcessId(IN ULONG ulProcId, OUT PEPROCESS* pEProcess);
 typedef unsigned long       DWORD;
 //定义ssdt结构
 typedef struct _SERVICES_DESCRIPTOR_TABLE {     
@@ -28,7 +30,7 @@ VOID initinlinehook(UINT32 index);//inline hook 跳板函数
 VOID ssdtHook(UINT32 index);
 UINT64 getFunctionCount();//获取ssdt中函数偏移个数
 VOID ssdtUnhook(UINT32 index);
-NTSTATUS NTAPI proxyNtOpenProcess(
+NTSTATUS NTAPI myNtOpenProcess(
     _Out_ PHANDLE ProcessHandle,
     _In_ ACCESS_MASK DesiredAccess,
     _In_ POBJECT_ATTRIBUTES ObjectAttributes,
@@ -99,13 +101,20 @@ VOID wpOn()
 
 }
 
-NTSTATUS NTAPI proxyNtOpenProcess(
+NTSTATUS NTAPI myNtOpenProcess(
     _Out_ PHANDLE ProcessHandle,
     _In_ ACCESS_MASK DesiredAccess,
     _In_ POBJECT_ATTRIBUTES ObjectAttributes,
     _In_opt_ PCLIENT_ID ClientId)
 {
-    DbgPrint("SSDT HOOK!");
+    PEPROCESS process = 0;
+    if (STATUS_SUCCESS == PsLookupProcessByProcessId(ClientId->UniqueProcess, &process))
+    {
+        if (strcmp(PsGetProcessImageFileName(process), "notepad.exe") == 0)
+        {
+            return STATUS_PNP_INVALID_ID;
+        }
+    }
     return originNtOpenProcess(ProcessHandle, DesiredAccess, ObjectAttributes, ClientId);
 }
 UINT64 getKeServiceDescirptorTable()
@@ -169,7 +178,7 @@ VOID initinlinehook(UINT32 index)
     UCHAR jmpCode[13] = "\x48\xB8\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x00\xFF\xE0";
     UINT64 proxyFunction;
     UINT64 AAA = getSsdtFunctionAddress(index);
-    proxyFunction = (UINT64)proxyNtOpenProcess;  
+    proxyFunction = (UINT64)myNtOpenProcess;  
     RtlCopyMemory(jmpCode + 2, &proxyFunction, 8);
     wpOff();  
     memset(AAA, 0x90, 15);  
